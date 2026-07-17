@@ -23,25 +23,54 @@ type Props = {
 
 // ✅ Meta avec Promise pour params
 export async function generateMetadata({ params }: Props) {
-  //const { slug } = await params;
   const { locale, slug } = await params;
 
   try {
     const post = await fetchPostMeta(slug, locale);
     if (!post) return {};
+
+    const cleanDescription = he.decode(post.excerpt).replace(/<[^>]*>?/gm, "").trim();
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://www.congo-eco.com";
+    
+    // Chemin exact correspondant à votre dossier : article/[slug]
+    const frontendUrl = `${baseUrl}/${locale}/article/${slug}`;
+
+    // On s'assure que l'image est bien présente et absolue
+    const imageUrl = post.featured_image && post.featured_image.startsWith('http') 
+      ? post.featured_image 
+      : `${baseUrl}/images/og-default.png`; // Ayez toujours une image de secours ici
+
     return {
       title: he.decode(post.title),
-      description: he.decode(post.excerpt),
+      description: cleanDescription,
+      alternates: {
+        canonical: frontendUrl,
+      },
       openGraph: {
         title: he.decode(post.title),
-        description: he.decode(post.excerpt),
-        images: [post.featured_image],
-        //url: post.link,
-        //type: "article",
-      }
+        description: cleanDescription,
+        url: frontendUrl,
+        type: "article",
+        siteName: "CONGO-ECO",
+        images: [
+          {
+            url: imageUrl,
+            width: 1200, // Facebook recommande ces dimensions
+            height: 630,
+            alt: he.decode(post.title),
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: he.decode(post.title),
+        description: cleanDescription,
+        images: [imageUrl],
+      },
     };
-  } catch {
-    return {};
+  } catch (error) {
+    console.error("Metadata error:", error);
+    return { title: "CONGO-ECO" };
   }
 }
 
